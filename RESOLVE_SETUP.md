@@ -1,20 +1,30 @@
-# MSR AI Captions — Resolve Setup
+# MSR AI Captions — Native Resolve Setup
 
-## What changed
+## New architecture
 
-The Resolve menu script is now a **launcher only**. It starts the standalone MSR AI Captions Studio instead of trying to run Tkinter/Gemini inside Resolve's embedded Python.
-
-This fixes the common case where:
+The Workspace script is now the actual MSR AI Captions interface. It does **not** launch a Tkinter window and does **not** ask the user to import a video.
 
 ```text
-Workspace > Scripts > Utility > MSR AI Captions
+Resolve Workspace > Scripts > Utility > MSR AI Captions
+                         ↓
+                 Native Resolve UIManager
+                         ↓
+                Current Project + Timeline
+                         ↓
+                Resolve audio-only render
+                         ↓
+              Hidden Gemini Python worker
+                         ↓
+                  SRT + JSON + VTT
+                         ↓
+                 Text+ timeline overlays
 ```
-
-appears in Resolve but clicking it does nothing.
 
 ## 1. Resolve permission
 
-For live control from the standalone app, use **DaVinci Resolve Studio** and enable external scripting:
+For this native Workspace workflow, the script runs **inside Resolve**, so it does not depend on an external `scriptapp("Resolve")` connection to open the UI.
+
+If Resolve's scripting security is set to a restrictive mode and the script reports that scripting is unavailable, use:
 
 ```text
 DaVinci Resolve
@@ -25,185 +35,130 @@ DaVinci Resolve
   > Local
 ```
 
-Then save and restart Resolve.
+Save and restart Resolve.
 
-`Local` is the correct choice when MSR AI Captions and Resolve are on the same Windows PC. Blackmagic documents `None`, `Local`, and `Network` for this setting; `Local` allows same-computer external scripts/applications to control Resolve. The setting is a Studio feature.
+`Local` is the same-PC external scripting mode documented by Resolve. The native Workspace script itself should normally be able to access the current Resolve context without launching an external Resolve controller.
 
-The MSR application has a **Check Permissions** button and automatically tests the Resolve scripting connection. It cannot silently change Resolve's security preference because that is an application security control.
+## 2. Install the Utility script
 
-## 2. Automatic Python setup
-
-The application automatically checks for Python and prefers:
-
-1. Python 3.11
-2. Python 3.10
-3. Python 3.12
-4. Python launcher default
-5. `python`
-
-This is intentional because some Resolve scripting environments are most reliable with Python 3.10/3.11.
-
-Click **Repair Setup** in the app to install/update:
-
-```text
-google-genai
-python-dotenv
-pydantic
-```
-
-## 3. Automatic `.env` setup
-
-You do not need an `env.py` file.
-
-On first run the app automatically creates:
-
-```text
-.env
-```
-
-with:
-
-```text
-GEMINI_API_KEY=PASTE_NEW_KEY_HERE
-GEMINI_PROJECT_ID=774512798784
-GEMINI_MODEL=gemini-3.6-flash
-```
-
-Click **Configure .env** to open it.
-
-Only the API key needs to be supplied by you. The project number and model are automatically managed by the application.
-
-Never commit `.env`.
-
-## 4. Generate captions directly on the video
-
-The new default output mode is:
-
-```text
-Text+ Video Overlay
-```
-
-The application does **not** display generated caption text in its dashboard.
-
-Workflow:
-
-```text
-Video
-  ↓
-Gemini transcription
-  ↓
-Timestamped transcript
-  ↓
-Smart caption algorithm
-  ↓
-Caption JSON
-  ↓
-Resolve Text+ clips
-  ↓
-Timeline overlay
-```
-
-For every caption, the app:
-
-1. Converts Gemini timing to timeline frames.
-2. Sets Resolve mark-in/mark-out.
-3. Inserts a `Text+` Fusion title.
-4. Writes the caption into `StyledText`.
-5. Applies basic readable styling.
-6. Clears the temporary mark.
-
-The result is an actual editable Text+ video overlay in the Resolve timeline, rather than caption text being shown in the MSR dashboard.
-
-Resolve's scripting API exposes `SetMarkInOut` and `InsertFusionTitleIntoTimeline`; this workflow is used because the public scripting API does not expose a general `SetSubtitleText` method for arbitrary subtitle items. See the Resolve API documentation included with Resolve under Help > Documentation > Developer.
-
-## 5. SRT-only mode
-
-If you do not want Text+ overlays, select:
-
-```text
-Output: SRT Only
-```
-
-The app will still create:
-
-```text
-video.srt
-video.vtt
-video.json
-```
-
-inside:
-
-```text
-_msr_ai_captions
-```
-
-## 6. Start from Resolve
-
-After installation:
-
-1. Start Resolve Studio.
-2. Open a project.
-3. Open a timeline.
-4. Set External Scripting Using to `Local`.
-5. Restart Resolve.
-6. Go to:
-
-```text
-Workspace > Scripts > Utility > MSR AI Captions
-```
-
-7. The menu script launches **MSR AI Captions Studio**.
-8. Wait for `Resolve: CONNECTED`.
-9. Select your media.
-10. Select the caption language.
-11. Keep `Text+ Video Overlay` selected.
-12. Click **GENERATE & OVERLAY CAPTIONS**.
-
-## 7. If Workspace script still does not open
-
-The Resolve script only launches the standalone application. Test the launcher manually:
-
-```text
-py MSR_AI_Captions_Studio.py
-```
-
-If that works but Workspace does not, reinstall/copy:
+Copy the repository file:
 
 ```text
 Utility/MSR_AI_Captions.py
 ```
 
-to the Resolve Utility Scripts directory and restart Resolve.
-
-## 8. Resolve module paths
-
-The app checks common Windows paths including:
+to:
 
 ```text
-C:\Program Files\Blackmagic Design\DaVinci Resolve\Developer\Scripting\Modules
-C:\Program Files\Blackmagic Design\DaVinci Resolve\Fusion\Scripting\Modules
-C:\ProgramData\Blackmagic Design\DaVinci Resolve\Support\Developer\Scripting\Modules
+%APPDATA%\Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Utility\
 ```
 
-If your installation is custom, the **Diagnostics** panel reports that the module was not found.
+The final path should be:
 
-## 9. Important security note
+```text
+%APPDATA%\Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Utility\MSR_AI_Captions.py
+```
 
-The API key previously exposed in the screenshot/chat must be revoked.
+Do not place a folder named `MSR_AI_Captions` around the file if you want a direct menu item.
 
-Create a replacement Gemini API key and put it only in local `.env`.
+## 3. Keep the repository folder intact
 
-Do not put a real key in:
+The repository root must contain:
 
-- GitHub
-- Python source
-- screenshots
-- ZIP files
-- README files
+```text
+MSR-AI-Captions-Plugin/
+├── Utility/MSR_AI_Captions.py
+├── backend/msr_gemini_backend.py
+├── resolve_overlay.py
+├── config.py
+├── requirements.txt
+└── .env
+```
 
-## 10. Why the dashboard does not show captions
+## 4. Python / Gemini worker
 
-The dashboard is now a **control panel only**. It shows connection, configuration, progress and diagnostics.
+The Resolve UI stays inside Resolve. Only the heavy Gemini work is sent to a hidden `pythonw.exe` worker so no Command Prompt window is intentionally opened.
 
-The generated caption text belongs in the Resolve timeline as Text+ overlays.
+Install dependencies once:
+
+```text
+py -3 -m pip install -r requirements.txt
+```
+
+Python 3.12 is supported by the worker.
+
+## 5. `.env`
+
+No `env.py` is required.
+
+Create a local `.env` in the repository root:
+
+```text
+GEMINI_API_KEY=YOUR_NEW_KEY
+GEMINI_PROJECT_ID=774512798784
+GEMINI_MODEL=gemini-3.6-flash
+```
+
+Never commit the real API key.
+
+## 6. Use the current timeline — no video/image import
+
+1. Open DaVinci Resolve Studio.
+2. Open your project.
+3. Open the timeline containing the video/audio you want to caption.
+4. Make sure the timeline is active.
+5. Go to:
+
+```text
+Workspace > Scripts > Utility > MSR AI Captions
+```
+
+6. The native MSR interface opens.
+7. Select language or `Auto Detect`.
+8. Keep `Create editable Text+ overlays` enabled if you want captions directly over the video.
+9. Keep `Create SRT file` enabled if you also want the SRT artifact.
+10. Click:
+
+```text
+GENERATE CAPTIONS FROM CURRENT TIMELINE
+```
+
+The software does **not** ask you to browse for an MP4/MOV/image.
+
+## 7. What happens internally
+
+Resolve renders only the active timeline's audio to a temporary WAV using its own render engine. The video is not imported into MSR and is not re-rendered by MSR.
+
+The hidden worker sends that WAV to Gemini and receives timestamped transcript segments. The local algorithm creates readable caption chunks and an SRT.
+
+The Resolve-side script then uses the current timeline and inserts editable `Text+` Fusion titles at the Gemini timestamps.
+
+## 8. Result
+
+The timeline becomes conceptually:
+
+```text
+V2  ── Text+ ── Text+ ── Text+ ── Text+
+V1  ───────────── YOUR VIDEO ─────────────
+A1  ───────────── YOUR AUDIO ─────────────
+```
+
+The caption text is therefore visible in the Resolve Viewer and remains editable in the timeline.
+
+## 9. Troubleshooting
+
+If the MSR menu item opens multiple Command Prompt windows, you are still using the **old** `Utility/MSR_AI_Captions.py`. Replace it with the new repository version and restart Resolve.
+
+If the UI does not appear, open:
+
+```text
+Workspace > Console
+```
+
+and run the script again. The native version is designed to report the error instead of silently launching and closing several console windows.
+
+If `UIManager` is unavailable, confirm you are running **DaVinci Resolve Studio** and that the Resolve/Fusion scripting support is installed.
+
+## 10. API key security
+
+The Gemini key previously exposed in screenshots/chat must be revoked. Create a replacement key and store it only in local `.env`.
