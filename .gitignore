@@ -1,4 +1,10 @@
 .env
 __pycache__/
 *.pyc
-_msr_ai_captions/
+.venv/
+venv/
+build/
+dist/
+app/work/
+app/output/
+*.log
