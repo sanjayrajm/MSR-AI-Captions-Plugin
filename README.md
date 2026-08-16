@@ -1,143 +1,109 @@
-# MSR AI Captions — DaVinci Resolve + Gemini
+# MSR AI Captions — DaVinci Resolve Studio + Gemini
 
-Gemini-powered transcription, multilingual captions and direct video overlays for DaVinci Resolve.
+MSR AI Captions is a Resolve-native Workspace script for Gemini transcription, multilingual caption generation, SRT creation and editable Text+ overlays.
 
-## Main workflow
+## Important: no media import workflow
+
+You do **not** browse for or import a video into the MSR application.
+
+The script uses the **currently open DaVinci Resolve project and current timeline**:
 
 ```text
-DaVinci Resolve
-      ↓
+DaVinci Resolve Studio
+        ↓
 Workspace > Scripts > Utility > MSR AI Captions
-      ↓
-MSR AI Captions Studio
-      ↓
-Gemini transcription
-      ↓
+        ↓
+Native Resolve/Fusion UIManager interface
+        ↓
+Current Project + Current Timeline
+        ↓
+Resolve renders timeline audio only to a temporary WAV
+        ↓
+Hidden Python worker → Gemini
+        ↓
+Timestamped transcript
+        ↓
 Smart caption algorithm
-      ↓
-Text+ Video Overlay
-      ↓
-Captions visible directly on the Resolve timeline/video
+        ↓
+SRT + JSON/VTT
+        ↓
+Editable Text+ overlays on the same Resolve timeline
 ```
 
-The Workspace script is now a **launcher only**. It starts the standalone Studio application so Resolve's embedded Python does not need Tkinter, Google SDKs or other third-party packages.
+No separate Tkinter Studio window is required. The previous launcher architecture has been replaced by a native Resolve UI so clicking the Workspace script does not intentionally open multiple Command Prompt windows.
 
-## Studio interface
+## Interface
 
-The application includes:
+The native interface shows:
 
-- Resolve connection status
-- Resolve version
-- Current project
+- Current Resolve project
 - Current timeline
-- Check Permissions
-- Repair Setup
-- Automatic `.env` creation
-- Gemini configuration status
-- Python detection
-- Video/audio browser
-- Multi-language selection
-- Text+ Video Overlay mode
-- SRT Only mode
+- Language / auto detection
+- Create editable Text+ overlays
+- Create SRT
 - Progress
 - Diagnostics
+- Generate captions from the current timeline
 
-The dashboard intentionally does **not** display the generated caption text. Caption text is placed on the Resolve timeline.
+The caption text is not presented as a dashboard preview. The final caption text is written into the Resolve timeline as Text+ overlays.
 
-## Direct video overlay
+## Timeline workflow
 
-The default mode is:
+When **GENERATE CAPTIONS FROM CURRENT TIMELINE** is pressed:
 
-```text
-Text+ Video Overlay
-```
+1. The script checks that a project and timeline are open.
+2. It does not ask the user to browse for media.
+3. Resolve's own render engine renders **audio only** from the current timeline to a temporary WAV.
+4. A hidden `pythonw.exe` worker sends that WAV to Gemini. No visible Command Prompt is used for the worker.
+5. Gemini returns timestamped structured transcription.
+6. The local caption algorithm applies line length, word count, timing, punctuation and reading-speed rules.
+7. An SRT, VTT and JSON result is written to the temporary MSR output folder.
+8. The Resolve script inserts editable `Text+` Fusion titles using the returned timestamps.
 
-The Gemini transcript is post-processed locally and then converted into editable `Text+` clips. For each caption the overlay engine:
+Resolve exposes render settings including `ExportVideo=False` / `ExportAudio=True`, and its scripting API provides `SetMarkInOut` and `InsertFusionTitleIntoTimeline` for timeline operations.
 
-1. Converts seconds to timeline frames.
-2. Sets Resolve mark-in/mark-out.
-3. Inserts a `Text+` Fusion title.
-4. Writes the caption into `StyledText`.
-5. Applies basic text styling.
-6. Clears the temporary mark.
+## Permission
 
-This makes the captions visible in the Edit page as actual video overlays rather than as dashboard text.
-
-The Resolve scripting API exposes `SetMarkInOut` and `InsertFusionTitleIntoTimeline`, which are used for this workflow.
-
-## Resolve permission
-
-For external application control, use DaVinci Resolve Studio and set:
+Because the script is launched from inside Resolve, the primary requirement is that Resolve scripting is enabled. Use DaVinci Resolve Studio and set:
 
 ```text
 DaVinci Resolve
-  > Preferences
-  > System
-  > General
-  > External Scripting Using
-  > Local
+  → Preferences
+  → System
+  → General
+  → External Scripting Using
+  → Local
 ```
 
-Then restart Resolve.
+Save and restart Resolve.
 
-`Local` is correct when the application and Resolve run on the same PC. Blackmagic documents `None`, `Local`, and `Network`; `Local` permits same-computer external scripts/applications to control Resolve.
+The script will show a native error/diagnostic window instead of silently spawning a Command Prompt when setup fails.
 
-The app cannot silently change this security permission. Instead it automatically checks the connection and provides a permission wizard.
+## Gemini configuration
 
-## Automatic setup
+No `env.py` file is required.
 
-No `env.py` configuration is required.
-
-On first run the app automatically creates `.env` if missing.
-
-Configure only:
+Create a local `.env` in the repository root if it does not already exist:
 
 ```text
 GEMINI_API_KEY=YOUR_NEW_KEY
-```
-
-The app automatically supplies:
-
-```text
 GEMINI_PROJECT_ID=774512798784
 GEMINI_MODEL=gemini-3.6-flash
 ```
 
-Click **Repair Setup** to install/update the Python dependencies.
+The real API key must remain local and must never be committed to GitHub.
 
-## Supported languages
+## Languages
 
-Auto detection plus:
-
-- English
-- Tamil
-- Hindi
-- Telugu
-- Malayalam
-- Kannada
-- Bengali
-- Marathi
-- Gujarati
-- Punjabi
-- Urdu
-- Spanish
-- French
-- German
-- Italian
-- Portuguese
-- Arabic
-- Japanese
-- Korean
-- Chinese
-- Indonesian
+Auto detection plus English, Tamil, Hindi, Telugu, Malayalam, Kannada, Bengali, Marathi, Gujarati, Punjabi, Urdu, Spanish, French, German, Italian, Portuguese, Arabic, Japanese, Korean, Chinese and Indonesian.
 
 ## Caption algorithm
 
-Gemini supplies semantic transcription and timestamps. Python then applies deterministic caption rules:
+The Gemini transcript is post-processed locally with deterministic rules:
 
 - 42 maximum characters per line
 - 2 lines maximum
-- 9 words maximum per caption
+- 9 words maximum per caption chunk
 - 0.8 second minimum duration
 - 5.5 second maximum duration
 - punctuation-aware breaks
@@ -146,18 +112,18 @@ Gemini supplies semantic transcription and timestamps. Python then applies deter
 - overlap correction
 - small timing gaps
 
-## Files
+## Repository structure
 
 ```text
 MSR-AI-Captions-Plugin/
-├── MSR_AI_Captions_Studio.py       # Main standalone control panel
-├── Start_MSR_AI_Captions.pyw       # Windowed launcher
-├── config.py                        # Automatic env/Python/Resolve detection
-├── resolve_overlay.py               # Text+ timeline overlay engine
 ├── Utility/
-│   └── MSR_AI_Captions.py           # Workspace launcher
+│   └── MSR_AI_Captions.py       # Native Resolve UI + timeline controller
 ├── backend/
-│   └── msr_gemini_backend.py        # Gemini + caption engine
+│   └── msr_gemini_backend.py    # Hidden Gemini transcription worker
+├── resolve_overlay.py            # Text+ timeline overlay engine
+├── config.py                     # Local configuration helpers
+├── MSR_AI_Captions_Studio.py     # Legacy standalone UI kept for compatibility
+├── Start_MSR_AI_Captions.pyw     # Legacy launcher kept for compatibility
 ├── requirements.txt
 ├── .env.example
 ├── RESOLVE_SETUP.md
@@ -166,30 +132,28 @@ MSR-AI-Captions-Plugin/
 
 ## Installation
 
-Install dependencies manually if desired:
+Install Python dependencies with:
 
 ```text
 py -m pip install -r requirements.txt
 ```
 
-Or launch the Studio application and click **Repair Setup**.
+FFmpeg is required by the backend and must be available as `ffmpeg.exe`.
 
-FFmpeg must also be installed and available as `ffmpeg.exe`.
+## Output
 
-## Output files
-
-Generated files are stored beside the source media:
+The native timeline workflow creates files under a temporary folder such as:
 
 ```text
-_msr_ai_captions/
-    video.srt
-    video.vtt
-    video.json
-    video_16k.wav
+%TEMP%\MSR_AI_Captions\<timeline-id>\
+    msr_timeline_audio.wav
+    MSR_AI_Captions.srt
+    MSR_AI_Captions.vtt
+    MSR_AI_Captions.json
 ```
+
+The WAV is an internal processing file. The SRT/VTT/JSON are the generated caption artifacts.
 
 ## Security
 
-The Gemini API key previously exposed in chat/screenshot must be revoked.
-
-Never put a real Gemini API key in Python source, GitHub, screenshots or public releases. Use the local `.env` file and keep `.env` out of Git.
+Revoke any Gemini API key that was previously exposed in chat or screenshots. Never commit a real API key to GitHub.
