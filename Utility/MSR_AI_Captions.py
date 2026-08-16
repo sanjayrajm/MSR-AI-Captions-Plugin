@@ -1,18 +1,14 @@
 """MSR AI Captions - DaVinci Resolve Workspace launcher.
 
-This script is executed by DaVinci Resolve's embedded scripting engine.
-Resolve may execute Workspace scripts with exec(), where __file__ is NOT
-defined. Therefore this launcher deliberately never uses __file__.
-
-Install this file directly in:
-%APPDATA%\\Blackmagic Design\\DaVinci Resolve\\Support\\Fusion\\Scripts\\Utility
-
-It launches the standalone MSR AI Captions Studio with normal Windows Python.
+Resolve executes Workspace scripts inside its embedded Python environment.
+This launcher finds normal Windows Python and starts the Studio UI with
+pythonw.exe so no Command Prompt window is opened.
 """
 from __future__ import annotations
 
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 try:
@@ -38,52 +34,68 @@ def show_error(title, text):
     print(f"{title}: {text}")
 
 
-def find_python():
-    # Prefer Python versions commonly used with the plugin. The user's
-    # Python 3.12 is also supported.
-    for command in (
-        ("py", "-3.11"),
-        ("py", "-3.10"),
-        ("py", "-3.12"),
-        ("py", "-3"),
-        ("python",),
-    ):
+def windows_pythonw():
+    """Find the real pythonw.exe, avoiding a console window."""
+    candidates = []
+
+    for version in ("3.12", "3.11", "3.10"):
         try:
-            result = subprocess.run(
-                list(command) + ["--version"],
+            p = subprocess.run(
+                ["py", f"-{version}", "-c", "import sys; print(sys.executable)"],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                timeout=5,
+                timeout=8,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
-            if result.returncode == 0:
-                return list(command)
+            if p.returncode == 0:
+                exe = Path(p.stdout.strip())
+                if exe.exists():
+                    candidates.append(exe)
         except Exception:
             pass
+
+    try:
+        current = Path(sys.executable)
+        if current.exists():
+            candidates.append(current)
+    except Exception:
+        pass
+
+    for exe in candidates:
+        if exe.name.lower() == "pythonw.exe" and exe.exists():
+            return exe
+        if exe.name.lower() == "python.exe":
+            pythonw = exe.with_name("pythonw.exe")
+            if pythonw.exists():
+                return pythonw
+
+    local = Path(os.environ.get("LOCALAPPDATA", ""))
+    for root in [
+        local / "Programs" / "Python",
+        Path(r"C:\Python312"), Path(r"C:\Python311"), Path(r"C:\Python310")
+    ]:
+        if root.exists():
+            try:
+                matches = list(root.glob("**/pythonw.exe"))
+                if matches:
+                    return matches[0]
+            except Exception:
+                pass
+
     return None
 
 
 def candidate_roots():
-    """Return likely plugin locations without relying on __file__."""
     roots = []
-
     appdata = os.environ.get("APPDATA", "")
+
     if appdata:
-        fusion_scripts = (
-            Path(appdata)
-            / "Blackmagic Design"
-            / "DaVinci Resolve"
-            / "Support"
-            / "Fusion"
-            / "Scripts"
+        scripts = (
+            Path(appdata) / "Blackmagic Design" / "DaVinci Resolve"
+            / "Support" / "Fusion" / "Scripts"
         )
-        roots.extend(
-            [
-                fusion_scripts,
-                fusion_scripts / "MSR-AI-Captions-Plugin",
-                fusion_scripts / "Utility",
-            ]
-        )
+        roots.extend([scripts / "MSR-AI-Captions-Plugin", scripts])
 
     home = Path.home()
     roots.extend([
@@ -95,8 +107,6 @@ def candidate_roots():
         home / "Documents" / "MSR-AI-Captions-Plugin",
     ])
 
-    # Also inspect immediate folders in Downloads. This handles GitHub's
-    # automatically generated folder name without scanning the whole drive.
     downloads = home / "Downloads"
     if downloads.exists():
         try:
@@ -104,8 +114,7 @@ def candidate_roots():
         except Exception:
             pass
 
-    unique = []
-    seen = set()
+    unique, seen = [], set()
     for root in roots:
         try:
             key = str(root.resolve()).lower()
@@ -118,25 +127,14 @@ def candidate_roots():
 
 
 def find_studio():
-    """Locate MSR_AI_Captions_Studio.py in known plugin folders."""
-    names = (
-        "MSR_AI_Captions_Studio.py",
-        "MSR AI Captions Studio.py",
-    )
-
+    names = ("MSR_AI_Captions_Studio.py", "MSR AI Captions Studio.py")
     for root in candidate_roots():
         if not root.exists() or not root.is_dir():
             continue
-
         for name in names:
             direct = root / name
             if direct.is_file():
                 return direct
-
-        # Common layouts:
-        # root/MSR_AI_Captions_Studio.py
-        # root/MSR-AI-Captions-Plugin-main/MSR_AI_Captions_Studio.py
-        # root/MSR-AI-Captions-Plugin/main/MSR_AI_Captions_Studio.py
         try:
             for name in names:
                 for depth in range(1, 4):
@@ -146,7 +144,6 @@ def find_studio():
                             return match
         except Exception:
             pass
-
     return None
 
 
@@ -155,34 +152,37 @@ def launch():
     if studio is None:
         raise RuntimeError(
             "MSR AI Captions Studio was not found.\n\n"
-            "The GitHub plugin folder must contain:\n"
-            "  MSR_AI_Captions_Studio.py\n"
-            "  backend\\msr_gemini_backend.py\n"
-            "  requirements.txt\n\n"
+            "Keep the GitHub plugin folder intact. It must contain:\n"
+            "MSR_AI_Captions_Studio.py\n"
+            "backend\\msr_gemini_backend.py\n"
+            "requirements.txt\n\n"
             "Recommended location:\n"
-            "%APPDATA%\\Blackmagic Design\\DaVinci Resolve\\Support\\Fusion\\Scripts\\MSR-AI-Captions-Plugin\n\n"
-            "The launcher searches that location and Downloads."
+            "%APPDATA%\\Blackmagic Design\\DaVinci Resolve\\Support\\Fusion\\Scripts\\MSR-AI-Captions-Plugin"
         )
 
-    python = find_python()
-    if python is None:
+    pythonw = windows_pythonw()
+    if pythonw is None:
         raise RuntimeError(
-            "Python 3.10+ was not found.\n\n"
-            "Open Command Prompt and run:\n"
-            "py --version"
+            "pythonw.exe was not found. Python is installed, but its GUI executable could not be located."
         )
 
     env = os.environ.copy()
-    env.setdefault("RESOLVE_SCRIPT_HOST", "127.0.0.1")
-    env.setdefault("MSR_RESOLVE_LAUNCHED", "1")
+    env["RESOLVE_SCRIPT_HOST"] = "127.0.0.1"
+    env["MSR_RESOLVE_LAUNCHED"] = "1"
 
-    # Start the Studio as a normal Windows process, not inside Resolve's
-    # embedded Python. This avoids missing package/Tkinter issues.
+    # Critical fix: pythonw.exe launches the Tkinter Studio without CMD.
     subprocess.Popen(
-        python + [str(studio)],
+        [str(pythonw), str(studio)],
         cwd=str(studio.parent),
         env=env,
-        creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0),
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        creationflags=(
+            getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+            | getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        ),
+        close_fds=True,
     )
 
 
