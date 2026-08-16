@@ -1,42 +1,73 @@
 # MSR AI Captions — DaVinci Resolve + Gemini
 
-Gemini-powered transcription, multilingual captions, and a standalone control panel for DaVinci Resolve Studio.
+Gemini-powered transcription, multilingual captions and direct video overlays for DaVinci Resolve.
 
-## Recommended workflow
-
-Use **MSR AI Captions Studio** as the main application. It gives you a visible interface, Resolve connection status, project/timeline detection, permission checklist, Gemini status, media selection, language selection, progress and diagnostics.
-
-### Start the software
+## Main workflow
 
 ```text
-py MSR_AI_Captions_Studio.py
+DaVinci Resolve
+      ↓
+Workspace > Scripts > Utility > MSR AI Captions
+      ↓
+MSR AI Captions Studio
+      ↓
+Gemini transcription
+      ↓
+Smart caption algorithm
+      ↓
+Text+ Video Overlay
+      ↓
+Captions visible directly on the Resolve timeline/video
 ```
 
-Or double-click:
+The Workspace script is now a **launcher only**. It starts the standalone Studio application so Resolve's embedded Python does not need Tkinter, Google SDKs or other third-party packages.
+
+## Studio interface
+
+The application includes:
+
+- Resolve connection status
+- Resolve version
+- Current project
+- Current timeline
+- Check Permissions
+- Repair Setup
+- Automatic `.env` creation
+- Gemini configuration status
+- Python detection
+- Video/audio browser
+- Multi-language selection
+- Text+ Video Overlay mode
+- SRT Only mode
+- Progress
+- Diagnostics
+
+The dashboard intentionally does **not** display the generated caption text. Caption text is placed on the Resolve timeline.
+
+## Direct video overlay
+
+The default mode is:
 
 ```text
-Start_MSR_AI_Captions.pyw
+Text+ Video Overlay
 ```
 
-The Studio app can:
+The Gemini transcript is post-processed locally and then converted into editable `Text+` clips. For each caption the overlay engine:
 
-- Connect to a running DaVinci Resolve instance
-- Detect Resolve version
-- Detect current project
-- Detect current timeline
-- Check the Gemini API-key configuration
-- Show the Resolve external-scripting permission steps
-- Select video/audio media
-- Transcribe with Gemini
-- Auto-detect the spoken language
-- Translate captions into multiple languages
-- Apply smart caption timing and line breaking
-- Generate SRT, VTT and JSON
-- Attempt to import the SRT into the current Resolve timeline
+1. Converts seconds to timeline frames.
+2. Sets Resolve mark-in/mark-out.
+3. Inserts a `Text+` Fusion title.
+4. Writes the caption into `StyledText`.
+5. Applies basic text styling.
+6. Clears the temporary mark.
+
+This makes the captions visible in the Edit page as actual video overlays rather than as dashboard text.
+
+The Resolve scripting API exposes `SetMarkInOut` and `InsertFusionTitleIntoTimeline`, which are used for this workflow.
 
 ## Resolve permission
 
-For live control from the standalone app, use **DaVinci Resolve Studio** and enable:
+For external application control, use DaVinci Resolve Studio and set:
 
 ```text
 DaVinci Resolve
@@ -47,65 +78,84 @@ DaVinci Resolve
   > Local
 ```
 
-Use **Local** when the app and Resolve are on the same computer.
+Then restart Resolve.
 
-The app contains a **Check Permissions** button with the complete setup checklist.
+`Local` is correct when the application and Resolve run on the same PC. Blackmagic documents `None`, `Local`, and `Network`; `Local` permits same-computer external scripts/applications to control Resolve.
 
-Blackmagic's documentation describes External Scripting Using as `None`, `Local`, or `Network`; `Local` permits external scripts/applications on the same computer to control Resolve, while `Network` permits network control. The setting is documented as a Resolve Studio feature.
+The app cannot silently change this security permission. Instead it automatically checks the connection and provides a permission wizard.
 
-See [RESOLVE_SETUP.md](RESOLVE_SETUP.md) for troubleshooting.
+## Automatic setup
 
-## Gemini configuration
+No `env.py` configuration is required.
 
-Create a local `.env` beside `MSR_AI_Captions_Studio.py`:
+On first run the app automatically creates `.env` if missing.
+
+Configure only:
 
 ```text
 GEMINI_API_KEY=YOUR_NEW_KEY
+```
+
+The app automatically supplies:
+
+```text
 GEMINI_PROJECT_ID=774512798784
 GEMINI_MODEL=gemini-3.6-flash
 ```
 
-The API key previously exposed in the screenshot/chat must be revoked. Never commit a real key to GitHub.
+Click **Repair Setup** to install/update the Python dependencies.
 
-## Features
+## Supported languages
 
-- DaVinci Resolve Workspace Utility script
-- Standalone MSR AI Captions Studio
-- Resolve connection diagnostics
-- Resolve permission wizard
-- Gemini audio transcription
-- Automatic language detection
-- Multi-language translation
-- Tamil, Hindi, Telugu, Malayalam, Kannada and more
-- Smart caption segmentation
-- SRT, VTT and JSON export
-- Optional subtitle-track import into the current Resolve timeline
-- FFmpeg audio extraction
-- Windows `.pyw` launcher
+Auto detection plus:
+
+- English
+- Tamil
+- Hindi
+- Telugu
+- Malayalam
+- Kannada
+- Bengali
+- Marathi
+- Gujarati
+- Punjabi
+- Urdu
+- Spanish
+- French
+- German
+- Italian
+- Portuguese
+- Arabic
+- Japanese
+- Korean
+- Chinese
+- Indonesian
 
 ## Caption algorithm
 
-Gemini supplies semantic transcription and timing. The local Python caption engine then applies deterministic rules:
+Gemini supplies semantic transcription and timestamps. Python then applies deterministic caption rules:
 
-- Maximum 42 characters per line
-- Maximum 2 lines
-- Maximum 9 words per caption
-- Minimum 0.8 second duration
-- Maximum 5.5 second duration
-- Punctuation-aware breaks
-- Natural word boundaries
-- Reading-speed control
-- Caption overlap correction
-- Small timing gaps
+- 42 maximum characters per line
+- 2 lines maximum
+- 9 words maximum per caption
+- 0.8 second minimum duration
+- 5.5 second maximum duration
+- punctuation-aware breaks
+- natural word boundaries
+- reading-speed control
+- overlap correction
+- small timing gaps
 
 ## Files
 
 ```text
 MSR-AI-Captions-Plugin/
-├── MSR_AI_Captions_Studio.py       # Standalone GUI + Resolve connection
+├── MSR_AI_Captions_Studio.py       # Main standalone control panel
 ├── Start_MSR_AI_Captions.pyw       # Windowed launcher
+├── config.py                        # Automatic env/Python/Resolve detection
+├── resolve_overlay.py               # Text+ timeline overlay engine
 ├── Utility/
-│   └── MSR_AI_Captions.py           # Resolve Workspace script
+│   └── MSR_AI_Captions.py           # Workspace launcher
 ├── backend/
 │   └── msr_gemini_backend.py        # Gemini + caption engine
 ├── requirements.txt
@@ -114,15 +164,19 @@ MSR-AI-Captions-Plugin/
 └── README.md
 ```
 
-## Install dependencies
+## Installation
+
+Install dependencies manually if desired:
 
 ```text
 py -m pip install -r requirements.txt
 ```
 
+Or launch the Studio application and click **Repair Setup**.
+
 FFmpeg must also be installed and available as `ffmpeg.exe`.
 
-## Output
+## Output files
 
 Generated files are stored beside the source media:
 
@@ -136,4 +190,6 @@ _msr_ai_captions/
 
 ## Security
 
-Never place a real Gemini API key in Python source code, GitHub, screenshots, or public releases. Use a local `.env` file and keep `.env` out of Git.
+The Gemini API key previously exposed in chat/screenshot must be revoked.
+
+Never put a real Gemini API key in Python source, GitHub, screenshots or public releases. Use the local `.env` file and keep `.env` out of Git.
