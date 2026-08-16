@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="MSR AI Captions - DaVinci Resolve AI caption generator with Gemini transcription and automatic SRT timeline placement.">
+  <title>MSR AI Captions · GitHub Style</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <a class="brand" href="#top"><span class="brand-mark">MSR</span> AI Captions</a>
+      <nav>
+        <a href="#features">Features</a>
+        <a href="#install">Install</a>
+        <a href="#commands">Commands</a>
+        <a href="#structure">Files</a>
+      </nav>
+      <a class="github-btn" href="https://github.com/sanjayrajm/MSR-AI-Captions-Plugin" target="_blank" rel="noopener">View on GitHub</a>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero container">
+      <div class="hero-copy">
+        <div class="repo-label"><span class="dot"></span> sanjayrajm / MSR-AI-Captions-Plugin</div>
+        <h1>AI captions for<br><span>DaVinci Resolve.</span></h1>
+        <p>Generate multilingual captions with Gemini, create timestamped SRT files, and automatically place them on your active Resolve timeline.</p>
+        <div class="actions">
+          <a class="btn primary" href="https://github.com/sanjayrajm/MSR-AI-Captions-Plugin/archive/refs/heads/main.zip">Download ZIP</a>
+          <a class="btn" href="https://github.com/sanjayrajm/MSR-AI-Captions-Plugin" target="_blank" rel="noopener">Open Repository</a>
+        </div>
+        <div class="badges"><span>Python</span><span>PySide6</span><span>Gemini</span><span>DaVinci Resolve</span></div>
+      </div>
+      <div class="hero-window">
+        <div class="window-bar"><span></span><span></span><span></span><b>MSR AI Captions</b></div>
+        <div class="window-body">
+          <aside><strong>MSR</strong><small>AI CAPTIONS</small><a class="active">Dashboard</a><a>Generate Captions</a><a>Transcript</a><a>Settings</a><em>● RESOLVE CONNECTED</em></aside>
+          <div class="mock-main"><small>MSR AI Captions</small><h3>Caption Workflow</h3><div class="mock-card">✓ Active Resolve project detected</div><div class="mock-card">✓ Video clips detected</div><div class="mock-card">✓ Gemini transcription ready</div><div class="mock-progress"><i></i></div><button>GENERATE CAPTIONS</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="features" class="container section">
+      <div class="section-heading"><span>01</span><h2>Features</h2><p>Everything needed to move from video to captions without leaving your editing workflow.</p></div>
+      <div class="grid three">
+        <article><b>01</b><h3>Resolve Timeline</h3><p>Reads the active project, timeline and video clips directly from DaVinci Resolve.</p></article>
+        <article><b>02</b><h3>Gemini AI</h3><p>Transcribes extracted audio and supports multiple languages including Tamil, English, Hindi and more.</p></article>
+        <article><b>03</b><h3>Automatic SRT</h3><p>Creates timestamped SRT output and imports it into the Resolve Media Pool.</p></article>
+        <article><b>04</b><h3>Timeline Placement</h3><p>Creates or reuses a subtitle track and places captions at the selected clip position.</p></article>
+        <article><b>05</b><h3>GitHub Ready</h3><p>Clean source structure with generated files, secrets and build artifacts excluded.</p></article>
+        <article><b>06</b><h3>Windows App</h3><p>Use the Python app directly or build a windowed MSR_AI_Captions.exe.</p></article>
+      </div>
+    </section>
+
+    <section id="install" class="dark-section">
+      <div class="container section">
+        <div class="section-heading"><span>02</span><h2>Installation</h2><p>Follow these steps on Windows for a clean first-time setup.</p></div>
+        <div class="steps">
+          <div class="step"><strong>1</strong><div><h3>Download the project</h3><p>Use Download ZIP above or clone the repository.</p><pre><code>git clone https://github.com/sanjayrajm/MSR-AI-Captions-Plugin.git
+cd MSR-AI-Captions-Plugin</code><button class="copy">Copy</button></pre></div></div>
+          <div class="step"><strong>2</strong><div><h3>Install Python packages</h3><p>Python 3.12 is recommended.</p><pre><code>py -3.12 -m pip install -r requirements.txt</code><button class="copy">Copy</button></pre></div></div>
+          <div class="step"><strong>3</strong><div><h3>Configure Gemini</h3><p>Copy <code>.env.example</code> to <code>.env</code> and add your API key. Never commit the real key.</p><pre><code>GEMINI_API_KEY=your_key_here</code><button class="copy">Copy</button></pre></div></div>
+          <div class="step"><strong>4</strong><div><h3>Install FFmpeg</h3><p>FFmpeg must be available in your Windows PATH because MSR extracts temporary WAV audio from the Resolve source media.</p><pre><code>ffmpeg -version</code><button class="copy">Copy</button></pre></div></div>
+          <div class="step"><strong>5</strong><div><h3>Run MSR AI Captions</h3><pre><code>py -3.12 app\main.py</code><button class="copy">Copy</button></pre></div></div>
+          <div class="step"><strong>6</strong><div><h3>Install the Resolve script</h3><p>Keep <code>plugin</code> and <code>app</code> as sibling folders inside the installed MSR-AI-Captions-Plugin folder. Then open <b>Workspace → Scripts → MSR AI Captions</b> in DaVinci Resolve Studio.</p></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="commands" class="container section">
+      <div class="section-heading"><span>03</span><h2>Commands</h2><p>Common commands for development, testing and building the Windows application.</p></div>
+      <div class="terminal">
+        <div class="terminal-head"><span>Windows PowerShell / CMD</span><button class="copy">Copy</button></div>
+        <pre><code>git clone https://github.com/sanjayrajm/MSR-AI-Captions-Plugin.git
+cd MSR-AI-Captions-Plugin
+
+py -3.12 -m venv .venv
+.venv\Scripts\activate
+
+py -3.12 -m pip install --upgrade pip
+py -3.12 -m pip install -r requirements.txt
+
+py -3.12 app\main.py
+
+:: Build the Windows EXE
+build_exe.bat</code></pre>
+      </div>
+      <div class="note"><b>Important:</b> DaVinci Resolve Studio must be running with an active project and timeline when you use the Resolve integration.</div>
+    </section>
+
+    <section id="structure" class="dark-section">
+      <div class="container section">
+        <div class="section-heading"><span>04</span><h2>Project Files</h2><p>The root page acts as the project documentation hub while the application remains inside <code>app/</code>.</p></div>
+        <div class="file-tree"><div><span>📁</span><b>MSR-AI-Captions-Plugin/</b></div><div class="indent"><span>🌐</span><b>index.html</b><small>Project website</small></div><div class="indent"><span>🎨</span><b>styles.css</b><small>GitHub-style UI</small></div><div class="indent"><span>⚙</span><b>script.js</b><small>Copy buttons and navigation</small></div><div class="indent"><span>📁</span><b>app/</b><small>Desktop application</small></div><div class="indent2"><span>🐍</span>main.py</div><div class="indent2"><span>🔗</span>resolve_bridge.py</div><div class="indent2"><span>🎙</span>audio.py</div><div class="indent2"><span>✨</span>gemini_transcriber.py</div><div class="indent2"><span>📝</span>srt.py</div><div class="indent"><span>📁</span><b>plugin/</b><small>Resolve launcher</small></div><div class="indent2"><span>🐍</span>MSR_AI_Captions.py</div><div class="indent"><span>📄</span><b>README.md</b><small>Repository documentation</small></div><div class="indent"><span>📦</span><b>requirements.txt</b><small>Python dependencies</small></div><div class="indent"><span>🔧</span><b>build_exe.bat</b><small>Windows build command</small></div></div>
+      </div>
+    </section>
+
+    <section class="container section final-cta">
+      <div><span class="repo-label">READY TO BUILD</span><h2>Start with MSR AI Captions.</h2><p>Download the latest source or open the repository and follow the installation guide.</p></div>
+      <div class="actions"><a class="btn primary" href="https://github.com/sanjayrajm/MSR-AI-Captions-Plugin/archive/refs/heads/main.zip">Download Source ZIP</a><a class="btn" href="https://github.com/sanjayrajm/MSR-AI-Captions-Plugin" target="_blank" rel="noopener">GitHub Repository</a></div>
+    </section>
+  </main>
+  <footer><div class="container"><span>MSR AI Captions</span><span>Built for DaVinci Resolve · MSR Tech</span></div></footer>
+  <script src="script.js"></script>
+</body>
+</html>
