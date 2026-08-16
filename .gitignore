@@ -7,4 +7,6 @@ build/
 dist/
 app/work/
 app/output/
+app/MSR_AI_Captions.exe
+app/MSR_AI_Captions_launcher.log
 *.log
