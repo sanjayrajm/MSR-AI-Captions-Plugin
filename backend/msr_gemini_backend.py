@@ -14,7 +14,7 @@ from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(os.getenv("MSR_AI_CAPTIONS_ROOT", Path(__file__).resolve().parents[1]))
 load_dotenv(ROOT / ".env")
 
 PROJECT_ID = os.getenv("GEMINI_PROJECT_ID", "774512798784")
@@ -47,10 +47,18 @@ def get_ffmpeg():
     p = shutil.which("ffmpeg")
     if p:
         return p
-    for p in (r"C:\ffmpeg\bin\ffmpeg.exe", r"C:\Program Files\ffmpeg\bin\ffmpeg.exe"):
-        if Path(p).exists():
-            return p
-    raise RuntimeError("FFmpeg was not found. Install FFmpeg and add ffmpeg.exe to PATH.")
+    roots = [
+        Path(r"C:\ffmpeg\bin\ffmpeg.exe"),
+        Path(r"C:\Program Files\ffmpeg\bin\ffmpeg.exe"),
+    ]
+    local = Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft" / "WinGet" / "Packages"
+    if local.exists():
+        roots.extend(local.glob("Gyan.FFmpeg.Shared_*/*/bin/ffmpeg.exe"))
+        roots.extend(local.glob("Gyan.FFmpeg.Shared_*/*/*/bin/ffmpeg.exe"))
+    for candidate in roots:
+        if Path(candidate).exists():
+            return str(candidate)
+    raise RuntimeError("FFmpeg was not found. Install FFmpeg and make sure ffmpeg.exe is available on PATH.")
 
 
 def extract_audio(src, dst):
@@ -158,36 +166,42 @@ def write_vtt(captions, path):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", required=True)
+    parser.add_argument("--input", help="Legacy: video/audio file input")
+    parser.add_argument("--audio", help="Resolve-rendered WAV input")
     parser.add_argument("--language", required=True)
+    parser.add_argument("--output-dir")
     args = parser.parse_args()
 
-    src = Path(args.input).resolve()
-    if not src.exists():
-        raise FileNotFoundError(src)
+    source = Path(args.audio or args.input or "").resolve()
+    if not source.exists():
+        raise FileNotFoundError(source)
 
     key = os.getenv("GEMINI_API_KEY", "").strip()
     if not key:
         raise RuntimeError("GEMINI_API_KEY is missing. Add a NEW key to .env.")
 
-    work = src.parent / "_msr_ai_captions"
-    work.mkdir(exist_ok=True)
-    wav = work / f"{src.stem}_16k.wav"
-    srt = work / f"{src.stem}.srt"
-    vtt = work / f"{src.stem}.vtt"
-    js = work / f"{src.stem}.json"
+    work = Path(args.output_dir).resolve() if args.output_dir else source.parent / "_msr_ai_captions"
+    work.mkdir(parents=True, exist_ok=True)
+    wav = source if args.audio else work / f"{source.stem}_16k.wav"
+    srt = work / "MSR_AI_Captions.srt"
+    vtt = work / "MSR_AI_Captions.vtt"
+    js = work / "MSR_AI_Captions.json"
 
-    progress(10, "Extracting audio...")
-    extract_audio(src, wav)
-    progress(30, "Connecting to Gemini...")
+    if not args.audio:
+        progress(10, "Extracting audio...")
+        extract_audio(source, wav)
+    else:
+        progress(20, "Using Resolve-rendered timeline audio...")
+
+    progress(35, "Connecting to Gemini...")
     client = genai.Client(api_key=key)
-    progress(45, "Uploading audio...")
+    progress(45, "Uploading timeline audio...")
     audio = client.files.upload(file=str(wav))
 
     target = "Keep the original spoken language and do not translate." if args.language in ("Original", "Auto Detect") else f"Translate into {args.language}; preserve meaning and natural phrasing."
     prompt = f"""
 You are the professional transcription engine for MSR AI Captions.
-Transcribe the supplied audio accurately.
+Transcribe the supplied Resolve timeline audio accurately.
 Detect the spoken language, preserve speech, add punctuation, create timestamped segments in seconds, identify speakers when reasonably possible, never invent words, and {target}
 Return only the structured JSON response.
 """
@@ -212,8 +226,12 @@ Return only the structured JSON response.
     with open(js, "w", encoding="utf-8") as f:
         json.dump({"project_id": PROJECT_ID, "model": MODEL, "detected_language": transcript.detected_language, "captions": captions}, f, ensure_ascii=False, indent=2)
     progress(100, "Completed.")
-    print("RESULT|" + json.dumps({"srt": str(srt), "vtt": str(vtt), "json": str(js), "detected_language": transcript.detected_language}), flush=True)
+    print("RESULT|" + json.dumps({"srt": str(srt), "vtt": str(vtt), "json": str(js), "detected_language": transcript.detected_language, "captions": captions}, ensure_ascii=False), flush=True)
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as exc:
+        print("ERROR|" + str(exc), flush=True)
+        raise
